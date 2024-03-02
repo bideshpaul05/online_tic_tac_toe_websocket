@@ -170,7 +170,7 @@ wss.on("connection", (ws, req) => {
               JSON.stringify({
                 type: "result",
                 state: "WIN",
-                winner: move === 0 ? "user2" : "user1",
+                winner: move === 0 ? 1 : 0,
               })
             );
           }

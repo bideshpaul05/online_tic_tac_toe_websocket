@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./page.scss";
 import { useNavigate } from "react-router-dom";
 
@@ -7,7 +7,8 @@ function Game() {
 
   const [board, setBoard] = useState([]);
   const [newsocket, setSocket] = useState();
-  const [sign,setSign] = useState()
+  // const [sign,setSign] = useState()
+  const sign  = useRef() // ******VERY IMPORTANT******  useEffect checks value of a state only when it is mounted if no params are passed. When i was comparing value of sign with winner sign sent by backend , sign initial value when this component was mounted which was undefined was getting compared to winner sign value sent by backend. So , everytime all the players were getting "you lost" message, We need to use ***useRef*** to avoid this problem.
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8080");
 
@@ -34,22 +35,17 @@ function Game() {
       if(data.type==="sign") //setting up sign
       {
         
-        setSign(data.sign)
+        sign.current = data.sign
       }
       if(data.type === "result")
       {
         if(data.state==="WIN") {
         
-          console.log(data)
-          if(data.winner === "user1" && sign === 0 || data.winner === "user2" && sign === 1) {
-            return alert("YOU WON , !!!!!CONGRATULATIONS!!!!!")
-          }
-          else{
-            return alert("SORRY BRO , YOU LOST")
-          }
+         
+          checkWinner(data);
         }
         else if(data.state === "DRAW") return alert("!!!!!!!!!DRAW!!!!!!!!!!")
-        socket.close();
+        // socket.close();
       }
       setBoard(data); //getting initial board
     });
@@ -62,22 +58,31 @@ function Game() {
       socket.close(); //clanup function
     };
   }, []);
+  const checkWinner = (e)=>{
 
+    if(sign.current === e.winner) {
+       alert("YOU WON , !!!!!CONGRATULATIONS!!!!!")
+          }
+          else{
+             alert("SORRY BRO , YOU LOST")
+          }
+
+  }
   const changestate = (b) => {
     //changing state in the board
     newsocket.send(
-      JSON.stringify({ event: "turn", id: b.target.id, state: sign })
+      JSON.stringify({ event: "turn", id: b.target.id, state: sign.current })
     );
   };
   const begin = () => {
     newsocket.send(JSON.stringify({ event: "game_begin"  }));
   };
 
-  console.log(sign);
+  // console.log(sign);
   return (
     <div className="game">
       <div className="container">
-       {  typeof(sign) !== undefined && <div className="alerts">Your are playing as  {sign===0?"O":"X"}!</div>}
+       {  typeof sign.current !== undefined && <div className="alerts">Your are playing as  {sign.current===0?"O":"X"}!</div>}
         <div className="main_content">
           <div className="gameinfo">
             <div className="players">
