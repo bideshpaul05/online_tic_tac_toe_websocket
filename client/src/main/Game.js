@@ -27,6 +27,9 @@ function Game() {
           alert("Room is Full, come sometimes later");
           navigate("/");
         }
+        else {
+          alert(data.message)
+        }
       }
       if(data.type==="sign") //setting up sign
       {
@@ -36,10 +39,9 @@ function Game() {
       if(data.type === "result")
       {
         if(data.state==="WIN") {
+        
           console.log(data)
-          console.log(sign)
-          if(data.winner === sign) {
-           
+          if(data.winner === "user1" && sign === 0 || data.winner === "user2" && sign === 1) {
             return alert("YOU WON , !!!!!CONGRATULATIONS!!!!!")
           }
           else{
@@ -47,11 +49,13 @@ function Game() {
           }
         }
         else if(data.state === "DRAW") return alert("!!!!!!!!!DRAW!!!!!!!!!!")
+        socket.close();
       }
       setBoard(data); //getting initial board
     });
     socket.onclose = () => {
       console.log("connection closed");
+      // socket.close();
     };
     setSocket(socket); //set the connection so we don't eshtablish new connection everytime we fire an event to backend from outside useeffect hook
     return () => {
