@@ -75,6 +75,9 @@
       justify-content: space-evenly;
       .gameinfo {
         flex: 1;
+        justify-content: space-around;
+        display: flex;
+        flex-direction: column;
         .turn {
           text-align: center;
           button {
@@ -134,6 +137,7 @@
           background-color: white;
           color: black;
           cursor: pointer;
+          font-size: 4em;
         }
       }
     }

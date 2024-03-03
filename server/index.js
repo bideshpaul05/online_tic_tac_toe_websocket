@@ -1,10 +1,10 @@
 import WebSocket, { WebSocketServer } from "ws";
 import express from "express";
+import {createServer} from 'http'
 const app = express();
-app.listen(8000, () => {
-  console.log("server is listening");
-});
-const wss = new WebSocketServer({ port: 8080 });
+const httpserver = createServer(app);
+
+const wss = new WebSocketServer({ server: httpserver });
 let board = [];
 let move = 0;
 let end = false;
@@ -18,6 +18,8 @@ const combinations = [
   [0, 4, 8], // Diagonal from top-left to bottom-right
   [2, 4, 6], //
 ];
+let clientset = new Set();
+let winningcomb = []
 let playerReady = 0;
 let draw = false;
 let ongoing = false;
@@ -37,6 +39,7 @@ const resetGame = () => {
   playerReady = 0;
   draw = false;
   ongoing  = false;
+  winningcomb = []
   // Setup a new game
   setBoard();
   // Notify clients that a new game is starting
@@ -49,8 +52,13 @@ const resetGame = () => {
         })
       );
       // Assign signs to players for the new game
-      if (playerReady === 1) ws.send(JSON.stringify({ type: "sign", sign: 0 }));
-      else if (playerReady === 2) ws.send(JSON.stringify({ type: "sign", sign: 1 }));
+      if (playerReady === 1) {
+       
+        ws.send(JSON.stringify({ type: "sign", sign: 1 }));
+      }
+      else if (playerReady === 2) {
+     
+        ws.send(JSON.stringify({ type: "sign", sign: 0 }));}
     }
   });
 };
@@ -64,7 +72,9 @@ const checkWin = () => {
         break; // Exit the inner loop if there's no win in this combination
       }
     }
-    if (win) return true; // Return true if a winning combination is found
+    if (win) {
+      winningcomb = combinations[i];
+      return true;} // Return true if a winning combination is found
   }
   return false; // Return false if no winning combination is found
 };
@@ -77,6 +87,9 @@ const checkdraw = () => {
   return false;
 };
 console.log(wss.clients.size);
+
+
+
 wss.on("connection", (ws, req) => {
   console.log(wss.clients.size);
   console.log(req.url.split("/").pop());
@@ -87,7 +100,7 @@ wss.on("connection", (ws, req) => {
         message: "Room is Full",
       })
     );
-    ws.close();
+    ws.close()
   } else {
     ws.send(
       JSON.stringify({
@@ -110,7 +123,7 @@ wss.on("connection", (ws, req) => {
       end = false;
       draw = false;
       //assigning sign to players
-      if (playerReady == 1) ws.send(JSON.stringify({ type: "sign", sign: 0 }));
+      if (playerReady == 1) ws.send(JSON.stringify({ type: "sign", sign: 0 ,message:"Waiting for Your Opponent"}));
       else if (playerReady == 2)
         ws.send(JSON.stringify({ type: "sign", sign: 1 }));
       if (playerReady == 2) {
@@ -120,6 +133,8 @@ wss.on("connection", (ws, req) => {
       }
 
     }
+    clientset.add(ws);
+    ws.send(JSON.stringify({type:"turn",playerTurn:move}));
   }
     if (data.event === "turn") {
       // checking if the move is from valid user or not
@@ -136,6 +151,7 @@ wss.on("connection", (ws, req) => {
             draw = true;
           }
           move = move === 0 ? 1 : 0;
+         
         } else {
           ws.send(
             JSON.stringify({
@@ -152,59 +168,83 @@ wss.on("connection", (ws, req) => {
             message: "invalid move",
           })
         );
-    }
-    wss.clients.forEach((ws) => {
-      if (ws.readyState === WebSocket.OPEN) {
-       
-        
-        if (end == true) {
-          if (draw === true) {
-            ws.send(
-              JSON.stringify({
-                type: "result",
-                state: "DRAW",
-              })
-            );
-          } else {
-            ws.send(
-              JSON.stringify({
-                type: "result",
-                state: "WIN",
-                winner: move === 0 ? 1 : 0,
-              })
-            );
-          }
+        if(!end)
+        {
+          wss.clients.forEach(ws=>{
+            ws.send(JSON.stringify({type:"turn",playerTurn:move}));
+          })
         }
-       
-        ws.send(JSON.stringify(board));
-   
+    }
+ 
+wss.clients.forEach((ws) => {
+  if (ws.readyState === WebSocket.OPEN) {
+      if (end === true) {
+          if (draw === true) {
+              ws.send(JSON.stringify({
+                  type: "result",
+                  state: "DRAW",
+              }));
+          } else {
+              ws.send(JSON.stringify({
+                  type: "result",
+                  state: "WIN",
+                  combination: winningcomb,
+                  winner: move === 0 ? 1 : 0,
+              }));
+          }
       }
-    });
+  }
+});
+
+// Send board state to all clients
+wss.clients.forEach((ws) => {
+  if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(board));
+  }
+});
+
 
   });
   ws.on("close", () => {
-    wss.clients.forEach((client) => {
-     
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(
-          JSON.stringify({
-            type: "alert",
-            action:"user left",
-            message: "Opponent disconnected. The game has been reset.",
-          })
-        );
+    if(clientset.size>=2){
+
+      ws.send(JSON.stringify({
+        type:"alert",
+        message:"not allowed"
+      }))
+      
+      
+    }
+    else{
+      
+      wss.clients.forEach((client) => {
+        
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(
+            JSON.stringify({
+              type: "alert",
+              action:"user left",
+              message: "Opponent disconnected. The game has been reset.",
+            })
+            );
+          }
+        });
+        clientset.clear()
+        ws.close();
+        
+        //clearnup
+        board = [];
+        move = 0;
+        end = false;
+        playerReady = 0;
+        draw = false;
+        ongoing = false;
+        console.log("user left");
       }
-    });
-  
-    ws.close();
-  ws.close();
-  //clearnup
-    board = [];
-    move = 0;
-    end = false;
-    playerReady = 0;
-    draw = false;
-    ongoing = false;
-    console.log("user left");
   });
+
+});
+const PORT = process.env.PORT || 8080;
+httpserver.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
