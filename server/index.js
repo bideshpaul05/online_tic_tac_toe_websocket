@@ -8,6 +8,7 @@ const wss = new WebSocketServer({ server: httpserver });
 let board = [];
 let move = 0;
 let end = false;
+let rooms = [{id:1202,connections:[]}]
 const combinations = [
   [0, 1, 2], // Top row
   [3, 4, 5], // Middle row
@@ -90,10 +91,23 @@ console.log(wss.clients.size);
 
 
 
+
 wss.on("connection", (ws, req) => {
   console.log(wss.clients.size);
-  console.log(req.url.split("/").pop());
-  if (wss.clients.size > 2) {
+  let roomId = req.url.split('/').pop();
+  // console.log(roomId)
+  let roomExist;
+  let Room ;
+  
+  let index = rooms.findIndex(room => room.id == roomId);
+  roomExist=index!==-1?true:false;
+  
+  if(roomExist)
+  {
+
+  Room = rooms[index];
+  
+  if (Room.connections.length > 2) {
     ws.send(
       JSON.stringify({
         type: "alert",
@@ -102,6 +116,7 @@ wss.on("connection", (ws, req) => {
     );
     ws.close()
   } else {
+    Room.connections.push(ws);
     ws.send(
       JSON.stringify({
         type: "alert",
@@ -109,6 +124,11 @@ wss.on("connection", (ws, req) => {
       })
     );
   }
+}
+else{
+  ws.send(JSON.stringify({type:"alert",message:"Room doesn't exist"}));
+  ws.close();
+}
   ws.on("message", (msg) => {
     const data = JSON.parse(msg);
     console.log(data);
@@ -133,7 +153,7 @@ wss.on("connection", (ws, req) => {
       }
 
     }
-    clientset.add(ws);
+    // clientset.add(ws);
     ws.send(JSON.stringify({type:"turn",playerTurn:move}));
   }
     if (data.event === "turn") {
@@ -170,13 +190,13 @@ wss.on("connection", (ws, req) => {
         );
         if(!end)
         {
-          wss.clients.forEach(ws=>{
+          Room.connections.forEach(ws=>{
             ws.send(JSON.stringify({type:"turn",playerTurn:move}));
           })
         }
     }
  
-wss.clients.forEach((ws) => {
+    Room.connections.forEach((ws) => {
   if (ws.readyState === WebSocket.OPEN) {
       if (end === true) {
           if (draw === true) {
@@ -197,7 +217,7 @@ wss.clients.forEach((ws) => {
 });
 
 // Send board state to all clients
-wss.clients.forEach((ws) => {
+Room.connections.forEach((ws) => {
   if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(board));
   }
@@ -206,7 +226,7 @@ wss.clients.forEach((ws) => {
 
   });
   ws.on("close", () => {
-    if(clientset.size>=2){
+    if(Room.connections.length>=2){
 
       ws.send(JSON.stringify({
         type:"alert",
@@ -217,7 +237,7 @@ wss.clients.forEach((ws) => {
     }
     else{
       
-      wss.clients.forEach((client) => {
+      Room.connections.forEach((client) => {
         
         if (client !== ws && client.readyState === WebSocket.OPEN) {
           client.send(
@@ -229,7 +249,7 @@ wss.clients.forEach((ws) => {
             );
           }
         });
-        clientset.clear()
+        Room.connections = [];
         ws.close();
         
         //clearnup

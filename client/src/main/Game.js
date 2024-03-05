@@ -13,10 +13,10 @@ function Game() {
   const [loadingmsg,setmsg] = useState ("Click Begin button to start a game")
   const [winningcomb,setwinningcomb ] = useState()
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:8080");
+    const socket = new WebSocket("ws://localhost:8080/room/1202");
 
     socket.addEventListener("open", () => {
-      // if(board.length===0)
+      
       //sending event to get board
       console.log("player joined");
     });
@@ -67,7 +67,7 @@ function Game() {
     return () => {
       socket.close(); //cleanup function
     };
-  }, []);
+  }, [navigate]);
   const checkWinner = (e) => {
     if (sign.current === e.winner) {
       alert("YOU WON , !!!!!CONGRATULATIONS!!!!!");
